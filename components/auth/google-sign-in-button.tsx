@@ -14,7 +14,10 @@ interface GoogleSignInButtonProps {
   onLoadError: () => void;
 }
 
-export function GoogleSignInButton({ onCredential, onLoadError }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({
+  onCredential,
+  onLoadError,
+}: GoogleSignInButtonProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScriptReady, setIsScriptReady] = useState(false);
 
@@ -50,8 +53,15 @@ export function GoogleSignInButton({ onCredential, onLoadError }: GoogleSignInBu
 
   return (
     <>
-      <Script src={GOOGLE_SCRIPT_URL} onReady={() => setIsScriptReady(true)} onError={onLoadError} />
-      <div ref={containerRef} className="flex h-10 w-full justify-center overflow-hidden" />
+      <Script
+        src={GOOGLE_SCRIPT_URL}
+        onReady={() => setIsScriptReady(true)}
+        onError={onLoadError}
+      />
+      <div
+        ref={containerRef}
+        className="flex h-10 w-full justify-center overflow-hidden"
+      />
     </>
   );
 }

@@ -26,7 +26,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (status !== "authenticated") {
     return (
-      <div role="status" aria-label="Loading" className="mx-auto w-full max-w-5xl space-y-4 p-6">
+      <div
+        role="status"
+        aria-label="Loading"
+        className="mx-auto w-full max-w-5xl space-y-4 p-6"
+      >
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-40 w-full" />
       </div>

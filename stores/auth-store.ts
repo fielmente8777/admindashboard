@@ -1,58 +1,89 @@
 import { create } from "zustand";
 
 import { ApiClient, ApiError } from "@/lib/api/api-client";
-import { AuthApi, type AuthSession, type AuthUser } from "@/lib/api/auth-api";
-import { StaffEmail } from "@/lib/auth/staff-email";
+import { AuthApi, type AdminSession, type AdminUser, type OtpChallenge } from "@/lib/api/auth-api";
 import { env } from "@/lib/env";
 
 const authApi = new AuthApi(new ApiClient(env.apiUrl));
-const staffEmail = new StaffEmail(env.staffEmailDomains);
-
-const NOT_STAFF_MESSAGE = `This console is for the Eazotel team. Sign in with your ${staffEmail.describeDomains()} Google account.`;
 
 const ERROR_MESSAGES: Record<string, string> = {
   GOOGLE_TOKEN_INVALID: "Google could not verify this sign-in. Please try again.",
   GOOGLE_LOGIN_DISABLED: "Google sign-in is not set up on the server yet.",
-  ACCOUNT_INACTIVE: "This account is inactive. Please contact your administrator.",
-  ACCOUNT_NOT_READY: "This account is not set up yet. Please contact your administrator.",
+  ADMIN_NOT_ALLOWED: "This Google account does not have access. Ask a super admin to add you.",
+  OTP_SEND_FAILED: "We could not email your sign-in code. Please try again.",
+  OTP_EXPIRED: "This code has expired. Please sign in again.",
+  OTP_ATTEMPTS_EXCEEDED: "Too many wrong codes. Please sign in again.",
+  OTP_RESEND_UNAVAILABLE: "A new code cannot be sent yet. Wait a moment, or sign in again.",
   RATE_LIMITED: "Too many sign-in attempts. Please wait a few minutes and try again.",
   NETWORK_ERROR: "Could not reach the server. Check your connection and try again.",
 };
 
+/** These end the attempt, so the person goes back to the Google button. */
+const RESTART_CODES = new Set(["OTP_EXPIRED", "OTP_ATTEMPTS_EXCEEDED", "ADMIN_NOT_ALLOWED"]);
+
 function messageFor(error: unknown): string {
-  const code = error instanceof ApiError ? error.code : "";
-  return ERROR_MESSAGES[code] ?? "Something went wrong while signing in. Please try again.";
+  if (!(error instanceof ApiError)) return "Something went wrong while signing in. Please try again.";
+  // The server's own wording, because it says how many attempts are left.
+  if (error.code === "OTP_INVALID") return error.message;
+  return ERROR_MESSAGES[error.code] ?? "Something went wrong while signing in. Please try again.";
 }
 
 type AuthStatus = "checking" | "authenticated" | "anonymous";
 
 interface AuthState {
   status: AuthStatus;
-  user: AuthUser | null;
+  user: AdminUser | null;
   /** Kept in memory only: a page reload gets a new one through the refresh cookie. */
   accessToken: string | null;
   expiresAt: string | null;
+  /** Set between Google and the email code. */
+  challenge: OtpChallenge | null;
   isSigningIn: boolean;
   error: string | null;
   restoreSession: () => Promise<void>;
+  /** The new access token, or null when it could not be renewed. */
+  refreshAccessToken: () => Promise<string | null>;
+  endSession: () => void;
+  updateName: (name: string | null) => void;
   loginWithGoogle: (idToken: string) => Promise<void>;
+  verifyOtp: (code: string) => Promise<void>;
+  resendOtp: () => Promise<void>;
+  cancelOtp: () => void;
   showError: (message: string) => void;
   logout: () => Promise<void>;
 }
 
-const SIGNED_OUT = { user: null, accessToken: null, expiresAt: null };
+const SIGNED_OUT = { user: null, accessToken: null, expiresAt: null, challenge: null };
 
-function signedIn(session: AuthSession) {
+function signedIn(session: AdminSession) {
   return {
     status: "authenticated" as const,
-    user: session.user,
+    user: session.admin,
     accessToken: session.accessToken,
     expiresAt: session.expiresAt,
+    challenge: null,
   };
 }
 
-// The refresh token rotates on every use, so two calls at once must share one request.
-let restoring: Promise<void> | null = null;
+// The refresh token rotates on every use, and reusing an old one ends the session as suspected
+// theft. So calls in this tab share one request, and the lock makes other tabs take turns: each
+// then sends the newest cookie.
+let refreshing: Promise<AdminSession> | null = null;
+
+async function refreshWithLock(): Promise<AdminSession> {
+  const refresh = () => authApi.refresh();
+  return navigator.locks ? navigator.locks.request("ez-admin-refresh", refresh) : refresh();
+}
+
+function refreshOnce(): Promise<AdminSession> {
+  const current =
+    refreshing ??
+    refreshWithLock().finally(() => {
+      refreshing = null;
+    });
+  refreshing = current;
+  return current;
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "checking",
@@ -63,40 +94,69 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   restoreSession: () => {
     if (get().status !== "checking") return Promise.resolve();
 
-    restoring ??= authApi
-      .refresh()
-      .then((session) => {
-        // A non-staff cookie can belong to the client dashboard on the same API,
-        // so leave that session alone and just don't use it here.
-        set(session.isStaff ? signedIn(session) : { status: "anonymous", ...SIGNED_OUT });
-      })
-      .catch(() => set({ status: "anonymous", ...SIGNED_OUT }))
-      .finally(() => {
-        restoring = null;
-      });
-    return restoring;
+    return refreshOnce()
+      .then((session) => set(signedIn(session)))
+      .catch(() => set({ status: "anonymous", ...SIGNED_OUT }));
+  },
+
+  refreshAccessToken: async () => {
+    try {
+      const session = await refreshOnce();
+      set(signedIn(session));
+      return session.accessToken;
+    } catch (error) {
+      // A network or server problem says nothing about the session, so stay signed in.
+      const sessionEnded = error instanceof ApiError && error.status >= 400 && error.status < 500;
+      if (sessionEnded) set({ status: "anonymous", ...SIGNED_OUT });
+      return null;
+    }
+  },
+
+  endSession: () => set({ status: "anonymous", ...SIGNED_OUT }),
+
+  updateName: (name) => {
+    const { user } = get();
+    if (user) set({ user: { ...user, name } });
   },
 
   loginWithGoogle: async (idToken) => {
-    if (!staffEmail.matchesIdToken(idToken)) {
-      set({ error: NOT_STAFF_MESSAGE });
-      return;
-    }
-
     set({ isSigningIn: true, error: null });
     try {
-      const session = await authApi.loginWithGoogle(idToken);
-      if (session.isStaff) {
-        set({ ...signedIn(session), isSigningIn: false });
-        return;
-      }
-      // The server has the final say. End the session it just started.
-      await authApi.logout().catch(() => undefined);
-      set({ isSigningIn: false, error: NOT_STAFF_MESSAGE });
+      const challenge = await authApi.loginWithGoogle(idToken);
+      set({ challenge, isSigningIn: false });
     } catch (error) {
       set({ isSigningIn: false, error: messageFor(error) });
     }
   },
+
+  verifyOtp: async (code) => {
+    const { challenge } = get();
+    if (!challenge) return;
+
+    set({ isSigningIn: true, error: null });
+    try {
+      const session = await authApi.verifyOtp(challenge.challengeId, code);
+      set({ ...signedIn(session), isSigningIn: false });
+    } catch (error) {
+      const restart = error instanceof ApiError && RESTART_CODES.has(error.code);
+      set({ isSigningIn: false, error: messageFor(error), ...(restart ? { challenge: null } : {}) });
+    }
+  },
+
+  resendOtp: async () => {
+    const { challenge } = get();
+    if (!challenge) return;
+
+    set({ isSigningIn: true, error: null });
+    try {
+      set({ challenge: await authApi.resendOtp(challenge.challengeId), isSigningIn: false });
+    } catch (error) {
+      const restart = error instanceof ApiError && RESTART_CODES.has(error.code);
+      set({ isSigningIn: false, error: messageFor(error), ...(restart ? { challenge: null } : {}) });
+    }
+  },
+
+  cancelOtp: () => set({ challenge: null, error: null }),
 
   showError: (message) => set({ error: message }),
 

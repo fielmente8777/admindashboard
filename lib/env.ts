@@ -2,8 +2,8 @@
 export const env = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL ?? "",
   googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "",
-  staffEmailDomains: (process.env.NEXT_PUBLIC_STAFF_EMAIL_DOMAINS ?? "")
-    .split(",")
-    .map((domain) => domain.trim().toLowerCase())
-    .filter(Boolean),
+  /** the hotel dashboard (dashboard-new), where "Open account" signs staff in as a client */
+  hotelDashboardUrl: (
+    process.env.NEXT_PUBLIC_HOTEL_DASHBOARD_URL ?? ""
+  ).replace(/\/+$/, ""),
 };

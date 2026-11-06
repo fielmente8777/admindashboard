@@ -111,17 +111,29 @@ function buildLayer(towers: Tower[], style: LayerStyle, seed: number) {
       body += `M${x + Math.round((width - crownWidth) / 2)} ${top}v-22h${crownWidth}v22z`;
     }
 
-    const columns = Math.floor((width - TOWER_PADDING * 2 + WINDOW_GAP_X) / (WINDOW_WIDTH + WINDOW_GAP_X));
+    const columns = Math.floor(
+      (width - TOWER_PADDING * 2 + WINDOW_GAP_X) /
+        (WINDOW_WIDTH + WINDOW_GAP_X),
+    );
     const usedWidth = columns * (WINDOW_WIDTH + WINDOW_GAP_X) - WINDOW_GAP_X;
     const left = x + Math.round((width - usedWidth) / 2);
 
-    for (let wy = top + TOWER_PADDING; wy + WINDOW_HEIGHT < VIEW_HEIGHT; wy += WINDOW_HEIGHT + WINDOW_GAP_Y) {
+    for (
+      let wy = top + TOWER_PADDING;
+      wy + WINDOW_HEIGHT < VIEW_HEIGHT;
+      wy += WINDOW_HEIGHT + WINDOW_GAP_Y
+    ) {
       for (let column = 0; column < columns; column++) {
         const wx = left + column * (WINDOW_WIDTH + WINDOW_GAP_X);
         const roll = random();
         if (roll < style.twinkleChance) {
           dim += windowPath(wx, wy);
-          twinkling.push({ x: wx, y: wy, delay: random() * 16, duration: 7 + random() * 11 });
+          twinkling.push({
+            x: wx,
+            y: wy,
+            delay: random() * 16,
+            duration: 7 + random() * 11,
+          });
         } else if (roll < style.twinkleChance + style.litChance) {
           lit += windowPath(wx, wy);
         } else {
@@ -134,7 +146,10 @@ function buildLayer(towers: Tower[], style: LayerStyle, seed: number) {
   return { style, body, dim, lit, twinkling };
 }
 
-const LAYERS = [buildLayer(BACK_TOWERS, BACK_LAYER, 7), buildLayer(FRONT_TOWERS, FRONT_LAYER, 23)];
+const LAYERS = [
+  buildLayer(BACK_TOWERS, BACK_LAYER, 7),
+  buildLayer(FRONT_TOWERS, FRONT_LAYER, 23),
+];
 const BEACONS = FRONT_TOWERS.filter((tower) => tower.antenna);
 
 export function HotelSkyline({ className }: { className?: string }) {
@@ -175,8 +190,20 @@ export function HotelSkyline({ className }: { className?: string }) {
         const roof = VIEW_HEIGHT - height - (crown ? 22 : 0);
         return (
           <g key={x}>
-            <rect x={centre - 1} y={roof - 34} width={2} height={34} fill={FRONT_LAYER.body} />
-            <circle cx={centre} cy={roof - 36} r={3} fill="#fc5f07" className="skyline-beacon" />
+            <rect
+              x={centre - 1}
+              y={roof - 34}
+              width={2}
+              height={34}
+              fill={FRONT_LAYER.body}
+            />
+            <circle
+              cx={centre}
+              cy={roof - 36}
+              r={3}
+              fill="#fc5f07"
+              className="skyline-beacon"
+            />
           </g>
         );
       })}
