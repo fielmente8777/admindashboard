@@ -30,6 +30,11 @@ export const ADVANCED_PERMISSIONS = [
     label: "Manage plans and prices",
     hint: "Change plans, add-on prices, billing cycles and offers",
   },
+  {
+    id: "meta_pages.manage",
+    label: "Manage Meta pages",
+    hint: "See every Facebook page and choose which client gets its leads",
+  },
 ] as const;
 
 export type AdvancedPermission = (typeof ADVANCED_PERMISSIONS)[number]["id"];

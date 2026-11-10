@@ -138,6 +138,20 @@ export function describeAction(entry: AuditEntry): string {
       }`;
     case "client.updated":
       return `Edited client ${String(entry.details?.hotelName ?? entry.targetId ?? "")}`.trim();
+    case "meta_page.linked": {
+      const to = entry.changes?.link?.to as AssignedProperty | undefined;
+      return `Sent the leads of Meta page ${String(entry.details?.pageName ?? entry.details?.pageId ?? "")} to ${
+        to ? `${to.ndid} / ${to.hid}` : "a client"
+      }`;
+    }
+    case "meta_page.unlinked":
+      return `Unlinked Meta page ${String(entry.details?.pageName ?? entry.details?.pageId ?? "")}: its leads reach no client`;
+    case "meta_pages.synced": {
+      const added = Array.isArray(entry.details?.added)
+        ? entry.details.added.length
+        : 0;
+      return `Synced Meta pages (${Number(entry.details?.returned ?? 0)} from Meta, ${added} new)`;
+    }
     case "login.denied":
       return `Sign-in refused: ${DENIED_REASONS[String(entry.details?.reason)] ?? "not allowed"}`;
   }

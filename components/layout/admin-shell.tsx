@@ -6,6 +6,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Receipt,
   Users,
   type LucideIcon,
@@ -61,6 +62,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Billing",
     icon: Receipt,
     permission: "billing.view",
+  },
+  {
+    href: "/meta-pages",
+    label: "Meta pages",
+    icon: Megaphone,
+    permission: "meta_pages.manage",
   },
   { href: "/team", label: "Team", icon: Users, permission: "team.manage" },
   {
