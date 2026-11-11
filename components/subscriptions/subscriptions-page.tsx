@@ -20,6 +20,9 @@ import {
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 
+import { BulkActionBar } from "@/components/clients/bulk-actions";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   LoadFailed,
   PageHeader,
@@ -229,6 +232,8 @@ function RowActions({ subscription }: { subscription: Subscription }) {
 
 export function SubscriptionsPage() {
   const canManage = useCanManageSubscriptions();
+  const [kind, setKind] = useState<"clients" | "test">("clients");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [state, setState] = useState<SubscriptionState | undefined>();
   const [input, setInput] = useState("");
   const search = useDeferredValue(input.trim());
@@ -237,9 +242,10 @@ export function SubscriptionsPage() {
   const [page, setPage] = useState(1);
 
   const list = useQuery({
-    queryKey: ["subscriptions", "list", { state, search, sort, order, page }],
+    queryKey: ["subscriptions", "list", { kind, state, search, sort, order, page }],
     queryFn: () =>
       subscriptionsApi.list({
+        kind,
         state,
         search,
         sort,
@@ -259,6 +265,17 @@ export function SubscriptionsPage() {
     setPage(1);
   }
 
+  const items = list.data?.items ?? [];
+  const names = new Map(items.map((s) => [s.ndid, s.hotelName] as const));
+  const allPicked = items.length > 0 && items.every((s) => selected.has(s.ndid));
+  const toggle = (ndid: string, on: boolean) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (on) next.add(ndid);
+      else next.delete(ndid);
+      return next;
+    });
+
   const counts = list.data?.counts;
   const total = list.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -269,7 +286,37 @@ export function SubscriptionsPage() {
     <>
       <PageHeader
         title="Subscriptions"
-        description="Every client's plan and how long it runs. Pause, renew, expire or change a plan from the row menu."
+        description="Every client's plan and how long it runs. Pause, renew, expire or change a plan from the row menu, or tick several for the bulk buttons."
+      />
+
+      <nav aria-label="Subscription lists" className="mb-4 flex gap-1 border-b">
+        {(["clients", "test"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-current={kind === k ? "page" : undefined}
+            onClick={() => {
+              setKind(k);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              kind === k
+                ? "border-brand-orange text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {k === "clients" ? "Clients" : "Test"}
+          </button>
+        ))}
+      </nav>
+
+      <BulkActionBar
+        selected={[...selected]}
+        names={names}
+        view="clients"
+        onClear={() => setSelected(new Set())}
       />
 
       <div
@@ -335,7 +382,7 @@ export function SubscriptionsPage() {
                 setInput(event.target.value);
                 setPage(1);
               }}
-              placeholder="Search hotel or ndid"
+              placeholder="Hotel, login email or ndid"
               aria-label="Search subscriptions"
               className="pl-8"
             />
@@ -357,7 +404,9 @@ export function SubscriptionsPage() {
         )}
         {list.data && list.data.items.length === 0 && (
           <p className="p-10 text-center text-sm text-muted-foreground">
-            No subscription matches.
+            {kind === "test"
+              ? "No test accounts. Accounts whose owner logs in with an @eazotel.com or @fielmente.com email show here."
+              : "No subscription matches."}
           </p>
         )}
 
@@ -365,6 +414,15 @@ export function SubscriptionsPage() {
           <Table className={cn(list.isPlaceholderData && "opacity-60")}>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="w-10 pl-4">
+                  <Checkbox
+                    checked={allPicked}
+                    onCheckedChange={(on) =>
+                      setSelected(on ? new Set(items.map((s) => s.ndid)) : new Set())
+                    }
+                    aria-label="Select the subscriptions on this page"
+                  />
+                </TableHead>
                 <SortHeader
                   label="Hotel"
                   column="hotel"
@@ -409,8 +467,19 @@ export function SubscriptionsPage() {
             </TableHeader>
             <TableBody>
               {list.data.items.map((s) => (
-                <TableRow key={s.ndid}>
+                <TableRow
+                  key={s.ndid}
+                  data-state={selected.has(s.ndid) ? "selected" : undefined}
+                >
                   <TableCell className="pl-4">
+                    <Checkbox
+                      checked={selected.has(s.ndid)}
+                      disabled={!selected.has(s.ndid) && selected.size >= 50}
+                      onCheckedChange={(on) => toggle(s.ndid, Boolean(on))}
+                      aria-label={`Select ${s.hotelName ?? s.ndid}`}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <Link
                       href={`/clients/${encodeURIComponent(s.ndid)}?from=subscriptions`}
                       className="font-medium text-brand-navy hover:underline"

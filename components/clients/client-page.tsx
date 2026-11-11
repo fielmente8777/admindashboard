@@ -21,10 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/api-client";
 import {
+  clientBulkApi,
   clientsApi,
   type Client,
   type ClientChanges,
+  type TrashInfo,
 } from "@/lib/api/clients-api";
+import { formatDay } from "@/lib/api/subscriptions-api";
 import { formatDateTime } from "@/lib/format";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -305,6 +308,37 @@ function ClientEditor({ client }: { client: Client }) {
   );
 }
 
+/** Shown on a client in the trash: who moved it, why, and a way back. */
+function TrashBanner({ ndid, trash }: { ndid: string; trash: TrashInfo }) {
+  const canTrash = useAuthStore((state) => state.user?.permissions.includes("clients.trash")) ?? false;
+  const queryClient = useQueryClient();
+  const restore = useMutation({
+    mutationFn: () => clientBulkApi.run("restore", [ndid]),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["clients"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      const [row] = result.results;
+      if (row?.ok) toast.success(row.note ? `Restored. ${row.note}` : "Restored: back in the lists, subscription resumed");
+      else toast.error(row?.message ?? "Could not restore this client");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      <p>
+        <span className="font-semibold">In the trash</span> since {formatDay(trash.trashedAt)}, moved by {trash.by}
+        {trash.reason ? ` (${trash.reason})` : ""}. Hidden from every list
+        {trash.pausedSubscription ? ", subscription paused" : ""}; nothing is deleted.
+      </p>
+      {canTrash && (
+        <Button size="sm" variant="outline" disabled={restore.isPending} onClick={() => restore.mutate()}>
+          Restore
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function ClientPage() {
   const { ndid } = useParams<{ ndid: string }>();
   const canSeeServices = useAuthStore((state) =>
@@ -344,6 +378,7 @@ export function ClientPage() {
   return (
     <>
       {back}
+      {data.trash && <TrashBanner ndid={data.ndid} trash={data.trash} />}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-brand-navy">

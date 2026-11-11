@@ -118,6 +118,8 @@ export class SubscriptionsApi {
   }
 
   list(query: {
+    /** clients (default) = real hotels; test = Eazotel's own test dashboards */
+    kind?: "clients" | "test";
     state?: SubscriptionState;
     search?: string;
     sort: SubscriptionSort;
@@ -132,6 +134,7 @@ export class SubscriptionsApi {
       pageSize: String(query.pageSize),
     });
     if (query.state) params.set("state", query.state);
+    if (query.kind) params.set("kind", query.kind);
     if (query.search) params.set("search", query.search);
     return this.client.get<SubscriptionPage>(`/admin/subscriptions?${params}`);
   }

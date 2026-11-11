@@ -50,6 +50,37 @@ export interface Client {
     phone: string | null;
     isActive: boolean;
   } | null;
+  /** set while the client is in the trash (hidden from every list) */
+  trash: TrashInfo | null;
+}
+
+export interface TrashInfo {
+  by: string;
+  reason: string | null;
+  trashedAt: string;
+  /** moving it paused a running subscription; restoring resumes it */
+  pausedSubscription: boolean;
+}
+
+export interface TrashedClient extends TrashInfo {
+  ndid: string;
+  hotelName: string | null;
+}
+
+/** pause / resume the subscription; trash = temporary delete (hidden, nothing deleted); restore; delete = forever */
+export type BulkAction = "pause" | "resume" | "trash" | "restore" | "delete";
+
+export interface BulkResult {
+  results: {
+    ndid: string;
+    hotelName: string | null;
+    ok: boolean;
+    note: string | null;
+    error: string | null;
+    message: string | null;
+  }[];
+  done: number;
+  failed: number;
 }
 
 export type EditablePropertyFields = Partial<Omit<ClientProperty, "hid">>;
@@ -143,12 +174,16 @@ export class ClientsApi {
     search,
     after,
     limit,
+    kind,
   }: {
     search?: string;
     after?: string;
     limit?: number;
+    /** clients (default) = real hotels; test = Eazotel's own test dashboards */
+    kind?: "clients" | "test";
   }): Promise<ClientPage> {
     const query = new URLSearchParams();
+    if (kind) query.set("kind", kind);
     if (search) query.set("search", search);
     if (after) query.set("after", after);
     if (limit) query.set("limit", String(limit));
@@ -232,6 +267,26 @@ export class ClientsApi {
 }
 
 export const clientsApi = new ClientsApi(adminClient);
+
+/** The client list's bulk buttons and the trash. */
+export class ClientBulkApi {
+  constructor(private readonly client: ApiClient) {}
+
+  /** Up to 50 at a time. `confirm` (delete only): "DELETE <count>". */
+  run(
+    action: BulkAction,
+    ndids: string[],
+    extra: { reason?: string | null; confirm?: string } = {},
+  ): Promise<BulkResult> {
+    return this.client.post<BulkResult>("/admin/clients/bulk", { action, ndids, ...extra });
+  }
+
+  async trash(): Promise<TrashedClient[]> {
+    return (await this.client.get<{ items: TrashedClient[] }>("/admin/clients/trash")).items;
+  }
+}
+
+export const clientBulkApi = new ClientBulkApi(adminClient);
 
 /** A property's label: its own name, else the hotel's name with its id. */
 export function propertyLabel(

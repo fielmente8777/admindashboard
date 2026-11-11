@@ -35,6 +35,11 @@ export const ADVANCED_PERMISSIONS = [
     label: "Manage Meta pages",
     hint: "See every Facebook page and choose which client gets its leads",
   },
+  {
+    id: "clients.trash",
+    label: "Move clients to the trash",
+    hint: "Hide clients and pause their time (nothing deleted), and restore them",
+  },
 ] as const;
 
 export type AdvancedPermission = (typeof ADVANCED_PERMISSIONS)[number]["id"];
@@ -80,8 +85,14 @@ export class TeamApi {
     return members;
   }
 
-  add(member: NewTeamMember): Promise<TeamMember> {
-    return this.client.post<TeamMember>("/admin/team", member);
+  /** Adds them and emails the invite; `inviteSent` false means the email failed. */
+  add(member: NewTeamMember): Promise<TeamMember & { inviteSent: boolean }> {
+    return this.client.post<TeamMember & { inviteSent: boolean }>("/admin/team", member);
+  }
+
+  /** Emails the invite again. */
+  resendInvite(id: string): Promise<TeamMember & { inviteSent: boolean }> {
+    return this.client.post<TeamMember & { inviteSent: boolean }>(`/admin/team/${id}/invite`);
   }
 
   update(id: string, changes: TeamMemberChanges): Promise<TeamMember> {

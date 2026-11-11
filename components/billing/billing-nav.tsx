@@ -15,9 +15,11 @@ const TABS = [
   { href: "/billing", label: "Overview & payments" },
   { href: "/billing/plans", label: "Plans & pricing" },
   { href: "/billing/offers", label: "Offers" },
+  { href: "/billing/reminders", label: "Reminders" },
+  { href: "/billing/zoho", label: "Zoho Books" },
 ];
 
-/** The three Billing screens, as tabs under the page title. */
+/** The Billing screens, as tabs under the page title. */
 export function BillingNav() {
   const pathname = usePathname();
   return (

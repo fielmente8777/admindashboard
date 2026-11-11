@@ -160,6 +160,15 @@ function MemberRow({
   const isSelf = useAuthStore((state) => state.user?.id) === member.id;
   const setStatus = useSetStatus();
 
+  const resend = useMutation({
+    mutationFn: () => teamApi.resendInvite(member.id),
+    onSuccess: (result) =>
+      result.inviteSent
+        ? toast.success(`Invite emailed to ${member.email}`)
+        : toast.error("The invite email could not be sent. Check the mail server and try again."),
+    onError: (error) => toast.error(error.message),
+  });
+
   const enable = () =>
     setStatus.mutate(
       { member, status: "active" },
@@ -217,6 +226,11 @@ function MemberRow({
             <DropdownMenuItem onClick={() => onOpen({ kind: "edit", member })}>
               Edit
             </DropdownMenuItem>
+            {member.status === "active" && !member.googleLinked && (
+              <DropdownMenuItem disabled={resend.isPending} onClick={() => resend.mutate()}>
+                Resend invite
+              </DropdownMenuItem>
+            )}
             {!isSelf &&
               (member.status === "active" ? (
                 <DropdownMenuItem

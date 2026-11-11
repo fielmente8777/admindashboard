@@ -105,11 +105,15 @@ export function MemberDialog({
       void queryClient.invalidateQueries({ queryKey: ["team"] });
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
       if (isSelf) updateName(saved.name);
-      toast.success(
-        member
-          ? `Saved ${saved.email}`
-          : `${saved.email} can now sign in with Google`,
-      );
+      if (member) toast.success(`Saved ${saved.email}`);
+      else if ("inviteSent" in saved && saved.inviteSent === false)
+        toast.warning(
+          `${saved.email} was added, but the invite email didn't go out. Use "Resend invite" in their row.`,
+        );
+      else
+        toast.success(
+          `${saved.email} was added and emailed an invite with the sign-in link`,
+        );
       onClose();
     },
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
+import { Copy, LoaderCircle, Trash2, TriangleAlert } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
@@ -136,10 +136,28 @@ function DeleteDialog({
         {preview.data && (
           <div className="space-y-3">
             <Field>
-              <FieldLabel htmlFor="delete-confirm">
-                Type <span className="font-semibold">{expected}</span> to
-                confirm
-              </FieldLabel>
+              {/* the name sits outside the <label> (select-none, and a click there focuses the input) so it can be copied */}
+              <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                <FieldLabel htmlFor="delete-confirm">Type</FieldLabel>
+                <span className="rounded bg-muted px-1.5 py-0.5 font-semibold select-all">
+                  {expected}
+                </span>
+                <span>to confirm</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Copy the name"
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(expected)
+                      .then(() => toast.success("Copied"))
+                      .catch(() => toast.error("Couldn't copy. Select the name and press Ctrl+C."))
+                  }
+                >
+                  <Copy aria-hidden />
+                </Button>
+              </div>
               <Input
                 id="delete-confirm"
                 value={typed}
