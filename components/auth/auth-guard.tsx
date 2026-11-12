@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { Reconnecting } from "@/components/auth/reconnecting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -23,6 +24,8 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status === "anonymous") router.replace("/login");
   }, [status, router]);
+
+  if (status === "offline") return <Reconnecting />;
 
   if (status !== "authenticated") {
     return (

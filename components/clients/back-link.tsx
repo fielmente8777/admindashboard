@@ -9,6 +9,7 @@ import { Suspense } from "react";
 const ORIGINS: Record<string, { href: string; label: string }> = {
   subscriptions: { href: "/subscriptions", label: "All subscriptions" },
   clients: { href: "/clients", label: "All clients" },
+  missing: { href: "/clients/missing-numbers", label: "Missing WhatsApp numbers" },
 };
 
 const LINK_CLASS =
@@ -25,7 +26,7 @@ function Back() {
   );
 }
 
-/** Back to the list the client was opened from: Subscriptions or Clients. */
+/** Back to the list the client was opened from: Subscriptions, Clients or Missing numbers. */
 export function BackLink() {
   return (
     // the address is only known in the browser

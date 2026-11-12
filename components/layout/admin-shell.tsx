@@ -8,6 +8,7 @@ import {
   LogOut,
   Megaphone,
   Receipt,
+  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -62,6 +63,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Billing",
     icon: Receipt,
     permission: "billing.view",
+  },
+  {
+    href: "/ai-credits",
+    label: "AI credits",
+    icon: Sparkles,
+    permission: "credits.view",
   },
   {
     href: "/meta-pages",

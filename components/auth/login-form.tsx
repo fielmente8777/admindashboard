@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { OtpForm } from "@/components/auth/otp-form";
+import { Reconnecting } from "@/components/auth/reconnecting";
 import { Skeleton } from "@/components/ui/skeleton";
 import { env } from "@/lib/env";
 import { useAuthStore } from "@/stores/auth-store";
@@ -37,7 +38,9 @@ export function LoginForm() {
 
   return (
     <div className="space-y-4">
-      {challenge ? (
+      {status === "offline" && !challenge ? (
+        <Reconnecting />
+      ) : challenge ? (
         // A new code means a new key, which clears the typed code and restarts the resend wait.
         <OtpForm key={challenge.expiresAt} challenge={challenge} />
       ) : status === "anonymous" && env.googleClientId ? (
@@ -51,7 +54,7 @@ export function LoginForm() {
           />
         </div>
       ) : (
-        status !== "anonymous" && <Skeleton className="h-10 w-full" />
+        status === "checking" && <Skeleton className="h-10 w-full" />
       )}
 
       {isSigningIn && !challenge && (

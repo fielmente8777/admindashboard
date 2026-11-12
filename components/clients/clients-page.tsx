@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { cn } from "cn";
-import { LoaderCircle, Search } from "lucide-react";
+import { LoaderCircle, PhoneOff, Search } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
@@ -91,6 +91,12 @@ export function ClientsPage() {
           allProperties
             ? "Every hotel on Eazotel. Tick clients to pause, remind, move to the trash or delete several at once."
             : "The hotels with properties assigned to you. Ask a super admin for more."
+        }
+        action={
+          <Button variant="outline" render={<Link href="/clients/missing-numbers" />} nativeButton={false}>
+            <PhoneOff aria-hidden />
+            Missing WhatsApp numbers
+          </Button>
         }
       />
 

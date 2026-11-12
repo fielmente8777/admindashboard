@@ -17,8 +17,13 @@ export const ADVANCED_PERMISSIONS = [
   },
   {
     id: "credits.manage",
-    label: "Manage credits",
-    hint: "Add or share credits",
+    label: "Manage AI credits",
+    hint: "Add or remove credits and suspend AI for their assigned clients",
+  },
+  {
+    id: "credits.pricing",
+    label: "AI pricing and OpenAI account",
+    hint: "OpenAI pool and top-ups, model prices, recharge packages, credit settings",
   },
   {
     id: "billing.view",

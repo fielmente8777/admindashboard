@@ -126,6 +126,20 @@ export function describeAction(entry: AuditEntry): string {
         released ? ` (${released} held leads released)` : ""
       }`;
     }
+    case "client.team_phone_changed": {
+      const to = Object.values(entry.changes ?? {})[0]?.to;
+      const who = String(entry.details?.member ?? entry.targetEmail ?? "a team member");
+      const hotel = String(entry.details?.hotelName ?? entry.targetId ?? "a client");
+      const lists = Number(entry.details?.alertListsAdded ?? 0);
+      const what = entry.changes && Object.keys(entry.changes).length
+        ? to ? `Set ${who}'s WhatsApp number to ${String(to)}` : `Removed ${who}'s WhatsApp number`
+        : `Added ${who}'s number to the lead alerts`;
+      return `${what} at ${hotel}${lists ? ` (on ${lists} alert lists)` : ""}`;
+    }
+    case "client.owner_phone_filled":
+      return `Gave the account holder of ${String(entry.details?.hotelName ?? entry.targetId ?? "a client")} the hotel phone ${String(
+        Object.values(entry.changes ?? {})[0]?.to ?? "",
+      )}${entry.details?.script ? " (backfill script)" : ""}`;
     case "client.notifications_changed": {
       const property = entry.details?.property ?? entry.details?.hid;
       return `Changed the lead alerts of ${String(entry.details?.hotelName ?? entry.targetId ?? "a client")}${
@@ -154,6 +168,40 @@ export function describeAction(entry: AuditEntry): string {
     }
     case "login.denied":
       return `Sign-in refused: ${DENIED_REASONS[String(entry.details?.reason)] ?? "not allowed"}`;
+    case "credits.granted":
+    case "credits.deducted": {
+      const hotel = String(entry.details?.hotelName ?? entry.targetId ?? "a client");
+      const amount = Number(entry.details?.amount ?? 0).toLocaleString("en-IN");
+      const why = entry.details?.reason ? ` (${String(entry.details.reason)})` : "";
+      return entry.action === "credits.granted"
+        ? `Added ${amount} AI credits to ${hotel}${why}`
+        : `Removed ${amount} AI credits from ${hotel}${why}`;
+    }
+    case "credits.bulk_granted": {
+      const granted = Array.isArray(entry.details?.granted) ? entry.details.granted.length : 0;
+      return `Gave ${Number(entry.details?.amount ?? 0).toLocaleString("en-IN")} AI credits to ${granted} clients${
+        entry.details?.reason ? ` (${String(entry.details.reason)})` : ""
+      }`;
+    }
+    case "credits.wallet_suspended":
+    case "credits.wallet_resumed":
+      return `${entry.action === "credits.wallet_suspended" ? "Suspended" : "Resumed"} AI for ${String(
+        entry.details?.hotelName ?? entry.targetId ?? "a client",
+      )}${entry.details?.reason ? ` (${String(entry.details.reason)})` : ""}`;
+    case "credits.pricing_changed":
+      return entry.details?.created
+        ? `Priced AI model ${String(entry.details.created)}`
+        : `Changed the AI price of ${String(entry.details?.pricing ?? "a model")}`;
+    case "credits.package_changed":
+      return entry.details?.created
+        ? `Added AI credit package ${String(entry.details?.name ?? "")}`.trim()
+        : `Changed AI credit package ${String(entry.details?.name ?? "")}`.trim();
+    case "credits.settings_changed":
+      return "Changed AI credit settings";
+    case "credits.openai_topup_added":
+      return `Recorded an OpenAI top-up of $${Number(entry.details?.amountUsd ?? 0).toFixed(2)}`;
+    case "credits.openai_topup_edited":
+      return "Corrected an OpenAI top-up";
   }
 }
 

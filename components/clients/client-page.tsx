@@ -40,6 +40,7 @@ import { AppsCard } from "@/components/subscriptions/apps-card";
 import { SubscriptionCard } from "@/components/subscriptions/subscription-card";
 
 import { LeadAlertsCard } from "./lead-alerts-card";
+import { TeamPhonesCard } from "./team-phones-card";
 import { ServicesCard } from "./services-card";
 
 const email = z
@@ -442,6 +443,7 @@ export function ClientPage() {
       {canSeeServices && (
         <ServicesCard ndid={data.ndid} hotelName={data.hotelName} />
       )}
+      <TeamPhonesCard ndid={data.ndid} />
       <LeadAlertsCard ndid={data.ndid} hotelName={data.hotelName} />
 
       <ClientEditor key={data.ndid} client={data} />

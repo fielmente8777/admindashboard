@@ -28,7 +28,11 @@ function messageFor(error: unknown): string {
   return ERROR_MESSAGES[error.code] ?? "Something went wrong while signing in. Please try again.";
 }
 
-type AuthStatus = "checking" | "authenticated" | "anonymous";
+/**
+ * offline: the server could not be reached (or answered 5xx) while checking the session. The
+ * refresh cookie is still there, so this is NOT signed out: the guard keeps retrying.
+ */
+type AuthStatus = "checking" | "authenticated" | "anonymous" | "offline";
 
 interface AuthState {
   status: AuthStatus;
@@ -41,6 +45,8 @@ interface AuthState {
   isSigningIn: boolean;
   error: string | null;
   restoreSession: () => Promise<void>;
+  /** Checks the session again after "offline". */
+  retryRestore: () => Promise<void>;
   /** The new access token, or null when it could not be renewed. */
   refreshAccessToken: () => Promise<string | null>;
   endSession: () => void;
@@ -65,14 +71,38 @@ function signedIn(session: AdminSession) {
   };
 }
 
-// The refresh token rotates on every use, and reusing an old one ends the session as suspected
-// theft. So calls in this tab share one request, and the lock makes other tabs take turns: each
-// then sends the newest cookie.
+/** Only the server saying so ends a session: 401 (expired, logged out) or 403 (access removed). */
+function sessionEnded(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * One refresh, tried again when the answer says nothing about the session: 409 (another tab
+ * or an earlier page load is renewing it this very moment), the server unreachable, or 5xx
+ * (e.g. the API restarting).
+ */
+async function refreshWithRetry(): Promise<AdminSession> {
+  const waits = [400, 1000, 2500];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await authApi.refresh();
+    } catch (error) {
+      const wait = waits[attempt];
+      if (sessionEnded(error) || wait === undefined) throw error;
+      await sleep(wait);
+    }
+  }
+}
+
+// The refresh token rotates on every use. Calls in this tab share one request, and the lock
+// makes other tabs take turns, so each sends the newest cookie. (The server also forgives a
+// cookie whose renewal never reached the browser, e.g. a reload mid-refresh.)
 let refreshing: Promise<AdminSession> | null = null;
 
 async function refreshWithLock(): Promise<AdminSession> {
-  const refresh = () => authApi.refresh();
-  return navigator.locks ? navigator.locks.request("ez-admin-refresh", refresh) : refresh();
+  return navigator.locks ? navigator.locks.request("ez-admin-refresh", refreshWithRetry) : refreshWithRetry();
 }
 
 function refreshOnce(): Promise<AdminSession> {
@@ -96,7 +126,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     return refreshOnce()
       .then((session) => set(signedIn(session)))
-      .catch(() => set({ status: "anonymous", ...SIGNED_OUT }));
+      // a server that can't be reached says nothing about the session: keep the cookie, retry
+      .catch((error) => set({ status: sessionEnded(error) ? "anonymous" : "offline", ...SIGNED_OUT }));
+  },
+
+  retryRestore: () => {
+    if (get().status !== "offline") return Promise.resolve();
+    set({ status: "checking" });
+    return get().restoreSession();
   },
 
   refreshAccessToken: async () => {
@@ -106,8 +143,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return session.accessToken;
     } catch (error) {
       // A network or server problem says nothing about the session, so stay signed in.
-      const sessionEnded = error instanceof ApiError && error.status >= 400 && error.status < 500;
-      if (sessionEnded) set({ status: "anonymous", ...SIGNED_OUT });
+      if (sessionEnded(error)) set({ status: "anonymous", ...SIGNED_OUT });
       return null;
     }
   },
