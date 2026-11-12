@@ -44,7 +44,7 @@ is empty.
 
 | Variable | What it is |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | gian-new origin, without `/api/v1` (e.g. `http://localhost:8000`) |
+| `NEXT_PUBLIC_API_URL` | gian-new origin, without `/api/v1` (live `https://gn.eazotel.com`, local `http://localhost:8000`) |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google web client id. It must be listed in gian-new's `AUTH_GOOGLE_CLIENT_IDS`, and this site's origin must be an Authorized JavaScript origin on that client |
 | `NEXT_PUBLIC_HOTEL_DASHBOARD_URL` | dashboard-new origin (e.g. `http://localhost:5173`). **Open account** sends staff to `<this>/staff-access`. Empty: the button is off |
 
